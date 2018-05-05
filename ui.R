@@ -18,8 +18,6 @@ shinyUI(fluidPage(
 
   sidebarLayout(
     sidebarPanel(
-#      helpText("Enter partial sentence (some words) to get next word predicted."),
-#      hr(),
       textInput("inputText", "ENTER YOUR SENTENCE HERE",value = ""),
       submitButton('Submit'),
       hr(),
@@ -28,21 +26,16 @@ shinyUI(fluidPage(
                hr(),
                "2 - After inputting and clicking submit button, the predict next word will be displayed.",
                hr(),
-               "3 - Your input and the predicted word are showed in the text boxes on the right side."),
+               "3 - Your input and the predicted word are showed in the text boxes on the right side. Please be patient!"),
       hr()
       
     ),
     
-    # Show a plot of the generated distribution
+    # Show results
     mainPanel(
-       #plotOutput("distPlot")
       h3("INTRODUCTION:"),
       h4("This application takes your input and will predict the next word."),
-#      h3("Method:"),
-#      h5("Use MLE of n-gram algorithm"),
       hr(),
-#      textInput("Tcir",label=h3("Type your sentence here:")),
-#      submitButton('Submit'),
       h4('Words you entered : '),
       verbatimTextOutput("inputValue"),
       hr(),
