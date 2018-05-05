@@ -1,0 +1,110 @@
+---
+title: "Create NGram table"
+author: "Gongyao Wang"
+date: "April 27, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+```{r,warning=FALSE,message=FALSE}
+library(ggplot2)
+library(NLP)
+library(tm)
+library(RWeka)
+library(data.table)
+library(dplyr)
+```
+
+## read data from data source
+```{r}
+blog <- readLines("./Coursera-SwiftKey/final/en_US/en_US.blogs.txt", encoding = "UTF-8", skipNul = TRUE, warn = TRUE)
+news <- readLines("./Coursera-SwiftKey/final/en_US/en_US.news.txt", encoding = "UTF-8", skipNul = TRUE, warn = TRUE)
+twitter <- readLines("./Coursera-SwiftKey/final/en_US/en_US.twitter.txt", encoding = "UTF-8", skipNul = TRUE, warn = TRUE)
+```
+
+## sample data
+```{r}
+set.seed(999)
+sample_size = 5000
+
+sample_blog <- blog[sample(1:length(blog),sample_size)]
+sample_news <- news[sample(1:length(news),sample_size)]
+sample_twitter <- twitter[sample(1:length(twitter),sample_size)]
+
+sample_data<-rbind(sample_blog,sample_news,sample_twitter)
+rm(blog,news,twitter)
+```
+
+## Clean data
+```{r}
+s.corpus <- VCorpus(VectorSource(sample_data))
+s.corpus <- tm_map(s.corpus, content_transformer(function(x) iconv(x, to="UTF-8", sub="byte")))
+
+toSpace <- content_transformer(function(x, pattern) gsub(pattern, " ", x))
+s.corpus <- tm_map(s.corpus, toSpace, "(f|ht)tp(s?)://(.*)[.][a-z]+")
+s.corpus <- tm_map(s.corpus, toSpace, "@[^\\s]+")
+s.corpus <- tm_map(s.corpus, content_transformer(tolower), lazy = TRUE)
+s.corpus <- tm_map(s.corpus, removeWords, stopwords("english"))
+s.corpus <- tm_map(s.corpus, removePunctuation)
+s.corpus <- tm_map(s.corpus, removeNumbers)
+s.corpus <- tm_map(s.corpus, stripWhitespace)
+s.corpus <- tm_map(s.corpus, PlainTextDocument)
+```
+
+## tokenized into  n-grams
+```{r}
+uniGramTokenizer <- function(x) NGramTokenizer(x, Weka_control(min = 1, max = 1))
+biGramTokenizer <- function(x) NGramTokenizer(x, Weka_control(min = 2, max = 2))
+triGramTokenizer <- function(x) NGramTokenizer(x, Weka_control(min = 3, max = 3))
+quadGramTokenizer <- function(x) NGramTokenizer(x, Weka_control(min = 4, max = 4))
+
+oneGM <- TermDocumentMatrix(s.corpus, control = list(tokenize = uniGramTokenizer))
+twoGM <- TermDocumentMatrix(s.corpus, control = list(tokenize = biGramTokenizer))
+threeGM <- TermDocumentMatrix(s.corpus, control = list(tokenize = triGramTokenizer))
+fourGM <- TermDocumentMatrix(s.corpus, control = list(tokenize = quadGramTokenizer))
+```
+
+## create unigram data
+```{r}
+freqTerms1 <- findFreqTerms(oneGM, lowfreq = 50)
+termFreq1 <- rowSums(as.matrix(oneGM[freqTerms1,]))
+termFreq1 <- data.frame(unigram=names(termFreq1), frequency=termFreq1)
+termFreq1 <- termFreq1[order(-termFreq1$frequency),]
+unigramlist <- setDT(termFreq1)
+saveRDS(unigramlist,file="unigram.Rda")
+```
+
+## create bigram data
+```{r}
+freqTerms2 <- findFreqTerms(twoGM, lowfreq = 5)
+termFreq2 <- rowSums(as.matrix(twoGM[freqTerms2,]))
+termFreq2 <- data.frame(bigram=names(termFreq2), frequency=termFreq2)
+termFreq2 <- termFreq2[order(-termFreq2$frequency),]
+bigramlist <- setDT(termFreq2)
+saveRDS(bigramlist,file="bigram.Rda")
+```
+
+## create trigram data
+```{r}
+freqTerms3 <- findFreqTerms(threeGM, lowfreq = 2)
+termFreq3 <- rowSums(as.matrix(threeGM[freqTerms3,]))
+termFreq3 <- data.frame(trigram=names(termFreq3), frequency=termFreq3)
+trigramlist <- setDT(termFreq3)
+saveRDS(trigramlist,file="trigram.Rda")
+```
+
+## create quadgram data
+```{r}
+freqTerms4 <- findFreqTerms(fourGM, lowfreq = 1)
+freqTerms4 <- freqTerms4[1:1000]
+termFreq4 <- rowSums(as.matrix(fourGM[freqTerms4,]))
+termFreq4 <- data.frame(quadgram=names(termFreq4), frequency=termFreq4)
+quadgramlist <- setDT(termFreq4)
+saveRDS(quadgramlist,file="quadgram.Rda")
+```
+
+

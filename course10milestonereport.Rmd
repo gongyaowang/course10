@@ -1,0 +1,160 @@
+---
+title: "Milestone Report Capstone"
+author: "Gongyao Wang"
+date: "March 31, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Milestone Report
+## Introduction
+The goal of this project is just to display that you've gotten used to working with the data and that you are on track to create your prediction algorithm. Please submit a report on R Pubs (http://rpubs.com/) that explains your exploratory analysis and your goals for the eventual app and algorithm. This document should be concise and explain only the major features of the data you have identified and briefly summarize your plans for creating the prediction algorithm and Shiny app in a way that would be understandable to a non-data scientist manager. You should make use of tables and plots to illustrate important summaries of the data set. The motivation for this project is to: 1. Demonstrate that you've downloaded the data and have successfully loaded it in.2. Create a basic report of summary statistics about the data sets.3. Report any interesting findings that you amassed so far.4. Get feedback on your plans for creating a prediction algorithm and Shiny app.
+
+Review criteria
+
+1.Does the link lead to an HTML page describing the exploratory analysis of the training data set?
+2. Has the data scientist done basic summaries of the three files? Word counts, line counts and basic data tables?
+3. Has the data scientist made basic plots, such as histograms to illustrate features of the data?
+4. Was the report written in a brief, concise style, in a way that a non-data scientist manager could appreciate?
+
+## LOad Libraries
+```{r, warning=FALSE}
+library('ggplot2')
+library('tm')
+library('stringi')
+library('RWeka')
+```
+
+
+## Load data as lines
+Assume that all data was downloaded and unziped.
+```{r, warning=FALSE}
+blog.lines <- readLines(file("./Coursera-SwiftKey/final/en_US/en_US.blogs.txt"))
+news.lines <- readLines(file("./Coursera-SwiftKey/final/en_US/en_US.news.txt"))
+twitter.lines <- readLines(file("./Coursera-SwiftKey/final/en_US/en_US.twitter.txt"))
+```
+
+## Exploratory analysis of the training data set
+Count the number of lines of each source of the training data set
+```{r}
+length(blog.lines)
+```
+
+```{r}
+length(news.lines)
+```
+
+```{r}
+length(twitter.lines)
+```
+
+Count the number of words per line for each source data and summarize the data
+```{r}
+blog.wordspl <- stri_count_words(blog.lines)
+news.wordspl <- stri_count_words(news.lines)
+twitter.wordspl <- stri_count_words(twitter.lines)
+```
+
+### Blog summary
+```{r}
+summary(blog.wordspl)
+```
+
+### News summary
+```{r}
+summary(news.wordspl)
+```
+
+### Twitter summary
+```{r, warning=FALSE}
+summary(twitter.wordspl)
+```
+
+## Further Exploratory analysis based on a sample
+Here a random sample of 1% of total lines provided by the source data set was used to decrease the processing time but maintaining enough cases that are representative of the original data sample. Due to computer memory limitation, news data was used as an example.
+```{r, warning=FALSE}
+set.seed(999)
+#data.sample <- sample(news.lines, length(news.lines) * 0.01)
+data.sample <- c(sample(blog.lines, length(blog.lines) * 0.01),
+                 sample(news.lines, length(news.lines) * 0.01),
+                 sample(twitter.lines, length(twitter.lines) * 0.01))
+
+# Create corpus and clean the data
+corpus <- VCorpus(VectorSource(data.sample))
+toSpace <- content_transformer(function(x, pattern) gsub(pattern, " ", x))
+corpus <- tm_map(corpus, toSpace, "(f|ht)tp(s?)://(.*)[.][a-z]+")
+corpus <- tm_map(corpus, toSpace, "@[^\\s]+")
+corpus <- tm_map(corpus, tolower)
+corpus <- tm_map(corpus, removeWords, stopwords("en"))
+corpus <- tm_map(corpus, removePunctuation)
+corpus <- tm_map(corpus, removeNumbers)
+corpus <- tm_map(corpus, stripWhitespace)
+corpus <- tm_map(corpus, PlainTextDocument)
+```
+
+```{r}
+options(mc.cores=1)
+
+getFreq <- function(x) {
+  freq <- sort(rowSums(as.matrix(x)), decreasing = TRUE)
+  return(data.frame(word = names(freq), freq = freq))
+}
+bigram <- function(x) NGramTokenizer(x, Weka_control(min = 2, max = 2))
+trigram <- function(x) NGramTokenizer(x, Weka_control(min = 3, max = 3))
+
+# Get frequencies of most common n-grams in data sample
+ug.freq <- getFreq(removeSparseTerms(TermDocumentMatrix(corpus), 
+                                     0.9999))
+bg.freq <- getFreq(removeSparseTerms(TermDocumentMatrix(corpus, 
+                                                        control = list(tokenize = bigram)),
+                                     0.9999))
+tg.freq <- getFreq(removeSparseTerms(TermDocumentMatrix(corpus, 
+                                                        control = list(tokenize = trigram)),
+                                     0.9999))
+```
+
+
+
+### Plot the frequency of the number of words per line from the sample
+```{r, warning=FALSE}
+plotout <- function(data, label) {
+  ggplot(data[1:20,], aes(reorder(word, -freq), freq)) +
+         labs(x = label, y = "Frequency") +
+         theme(axis.text.x = element_text(angle = 60, size = 12, hjust = 1)) +
+         geom_bar(stat = "identity", fill = I("grey"))
+}
+```
+
+Here is a histogram of the 20 most common unigrams in the data sample
+```{r}
+plotout(ug.freq, "20 Most Common Unigrams")
+```
+
+Here is a histogram of the 20 most common bigrams in the data sample.
+```{r}
+plotout(bg.freq, "20 Most Common Bigrams")
+```
+
+Here is a histogram of the 20 most common trigrams in the data sample.
+```{r}
+plotout(tg.freq, "20 Most Common Trigrams")
+```
+
+
+
+# Conclusions
+An exploratory analysis have been performed. Some important findings are listed:
+1. The amount of lines per source type, and distribution of amount of words per line are calculated.
+
+2. The number of times that each word is repeated were counted. The number of times that two words are repeated were counted. The number of times that three words are repeated were counted. This can be used to employee n-gram model with frequency lookup.
+
+3. One possible strategy would be to use the trigram model to predict the next word. If no matching trigram can be found, then the algorithm would back off to the bigram model, and then to the unigram model if needed.
+
+
+
+
+
+
